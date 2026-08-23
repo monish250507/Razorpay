@@ -1,0 +1,31 @@
+{
+  "name": "aegis-rail",
+  "version": "1.0.0",
+  "description": "Universal Trust & Translation Gateway for Razorpay Agentic Commerce",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "start": ".venv\\Scripts\\python.exe -m uvicorn main:app --port 5000",
+    "dev:server": ".venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 5000",
+    "dev:client": "vite",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "razorpay": "^2.9.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "lucide-react": "^0.395.0",
+    "postcss": "^8.4.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.4",
+    "vite": "^5.3.1"
+  }
+}
