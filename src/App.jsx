@@ -3,7 +3,7 @@ import Header from './components/Header.jsx';
 import LayerArchitectureDiagram from './components/LayerArchitectureDiagram.jsx';
 import NovaSimulator from './components/NovaSimulator.jsx';
 import TrustInspector from './components/TrustInspector.jsx';
-import MerchantHub from './components/MerchantHub.jsx';
+
 import AuditLedgerView from './components/AuditLedgerView.jsx';
 import RazorpayModal from './components/RazorpayModal.jsx';
 import AttackResultPanel from './components/AttackResultPanel.jsx';
@@ -18,7 +18,7 @@ export default function App() {
   const [activeResult, setActiveResult] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showRazorpayModal, setShowRazorpayModal] = useState(false);
-  const [systemHealth, setSystemHealth] = useState(null);
+
   const [currentView, setCurrentView] = useState('buyer');
 
   // Per-layer streaming state: { [layerId]: { status, data } }
@@ -35,14 +35,12 @@ export default function App() {
 
   const fetchData = async () => {
     try {
-      const [healthRes, presetsRes, catalogRes, ledgerRes] = await Promise.all([
-        fetch(`${API_BASE}/api/health`).catch(() => null),
+      const [presetsRes, catalogRes, ledgerRes] = await Promise.all([
         fetch(`${API_BASE}/api/simulations`).catch(() => null),
         fetch(`${API_BASE}/api/catalog`).catch(() => null),
         fetch(`${API_BASE}/api/ledger`).catch(() => null)
       ]);
 
-      if (healthRes?.ok) setSystemHealth(await healthRes.json());
       if (presetsRes?.ok) setPresets(await presetsRes.json());
       if (catalogRes?.ok) setCatalogData(await catalogRes.json());
       if (ledgerRes?.ok) setLedgerData(await ledgerRes.json());

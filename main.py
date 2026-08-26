@@ -34,6 +34,9 @@ missing_vars = [var for var in REQUIRED_ENV_VARS if not os.getenv(var)]
 if missing_vars:
     raise RuntimeError(f"Startup Failed: Missing required environment variables: {', '.join(missing_vars)}")
 
+webhook_secret = os.getenv("RAZORPAY_WEBHOOK_SECRET")
+logger.info(f"✅ RAZORPAY_WEBHOOK_SECRET loaded (ends in ****{webhook_secret[-4:] if len(webhook_secret) >= 4 else webhook_secret}). Verify this matches your Razorpay Dashboard.")
+
 from services.seed_data import run_seed
 run_seed()
 
@@ -75,6 +78,10 @@ def get_catalog():
         "products": CatalogEngine.get_catalog(),
         "mcpSchema": CatalogEngine.get_mcp_tool_schema()
     }
+
+@app.get("/api/webhooks/razorpay/selftest")
+def webhook_selftest():
+    return {"status": "ok", "message": "Tunnel is alive. Webhook endpoint is reachable."}
 
 @app.post("/api/catalog/query")
 def query_catalog(query_params: dict):

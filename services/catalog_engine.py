@@ -233,7 +233,4 @@ class CatalogEngine:
     def get_manual_review_flags(cls) -> list:
         return list(_manual_review_flags)
 
-    @classmethod
-    def clear_manual_review_flag(cls, product_id: str):
-        _manual_review_flags.discard(product_id)
-        _extraction_failure_counts.pop(product_id, None)
+

@@ -51,6 +51,32 @@ For demonstration purposes, the system includes a React/Vite frontend (`npm run 
 
 AEGIS RAIL includes an interactive React/Vite visualizer paired with the FastAPI backend that provides real-time visibility into how transactions flow through the 6 security layers and how the 4-Stage LLM Harness protects against adversarial attacks.
 
+### 🧑‍💻 Live Demo & Ngrok Setup (Important!)
+
+This application can run fully on your localhost, with **ONE critical exception**: the Razorpay webhook requires the backend to be reachable from the public internet to confirm live test payments.
+
+To ensure a reliable live demo without needing to deploy to production, we provide an automated ngrok orchestration script.
+
+**Follow this exact setup order before a live presentation:**
+1. **Start the Demo Environment:**
+   Run our included script from your terminal:
+   ```bash
+   .venv\Scripts\python.exe scripts/start_demo.py
+   ```
+   *This starts the FastAPI backend and an ngrok tunnel simultaneously.*
+2. **Copy the Webhook URL:** The script will output an active public URL (e.g., `https://<ngrok-id>.ngrok-free.app/api/webhooks/razorpay`). 
+3. **Update Razorpay Dashboard:** Go to your Razorpay Dashboard -> Account & Settings -> Webhooks, and paste that exact URL.
+4. **Verify Webhook Secret:** Ensure the `RAZORPAY_WEBHOOK_SECRET` in your `.env` matches what is configured in the dashboard. (The backend will now print the last 4 characters of your loaded secret on startup to help you visually verify this).
+5. **Run Selftest:** Verify the tunnel is properly wired by opening the selftest URL provided by the script in your browser. It should return a 200 OK status.
+6. **Start Frontend:** In a separate terminal, run the frontend:
+   ```bash
+   npm run dev:client
+   ```
+
+*Note: Because ngrok free tier changes URLs on every restart, you MUST re-paste the webhook URL into the Razorpay dashboard every time you restart the script, unless you configure a static ngrok domain.*
+
+---
+
 ### 🖼️ Demo UI Dashboard Breakdown
 
 The interface is structured into four main operational quadrants and a top-level architectural status pipeline:

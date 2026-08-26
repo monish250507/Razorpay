@@ -182,9 +182,7 @@ class AuditLedger:
         cls.ledger.append(entry)
         return entry
 
-    @classmethod
-    def get_ledger_by_merchant(cls, merchant_id: str) -> list:
-        return [e for e in cls.ledger if e.get("merchantId") == merchant_id]
+
 
     @classmethod
     def get_transaction_details(cls, order_id: str) -> dict:

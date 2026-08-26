@@ -86,7 +86,7 @@ export default function RazorpayModal({ execution, onClose, onFallback }) {
       if (attempts >= maxAttempts) {
         clearInterval(intervalId);
         setPaymentState('failed');
-        setWebhookError("Timed out waiting for webhook confirmation. Check network/ngrok.");
+        setWebhookError("Timed out waiting for webhook confirmation. Check: (a) ngrok tunnel is running & dashboard URL matches, (b) RAZORPAY_WEBHOOK_SECRET in .env matches the Razorpay dashboard exactly.");
         return;
       }
 
