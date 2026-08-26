@@ -137,3 +137,31 @@ npm run dev
 
 *Note: Ensure you have your `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `GROQ_API_KEY`, and `HASH_CHAIN_SECRET` configured in your `.env` file.*
 
+
+## ☁️ Production Deployment (Vercel)
+
+This codebase is fully configured for a unified deployment on Vercel:
+- **Frontend**: Vercel will automatically build the Vite SPA (via `npm run build`) and serve the static files, routing all client-side navigation appropriately via `vercel.json`.
+- **Backend (Serverless)**: The FastAPI application is exposed via `api/index.py`. Vercel's Python runtime (`@vercel/python`) will automatically convert it into serverless functions.
+- **Routing**: `vercel.json` rewrites all `/api/*` traffic to the backend, preventing any CORS issues and ensuring a single unified domain.
+
+To deploy:
+1. Push this repository to GitHub.
+2. Import the project in Vercel.
+3. Add the required environment variables (`GROQ_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `HASH_CHAIN_SECRET`) in the Vercel dashboard.
+4. Click Deploy. Vercel handles the rest automatically.
+
+## 📜 Deployment & Troubleshooting History
+
+The following challenges were encountered and resolved during the deployment of AEGIS RAIL to production environments:
+
+- **Missing `render.yaml` / Missing env checks**: Fixed by creating a declarative Render deployment configuration and adding startup validations for required secrets (`GROQ_API_KEY`, `RAZORPAY_KEY_ID`, etc.).
+- **Insecure CORS / Proxy Buffering**: Fixed wildcard CORS issues and added `Connection: keep-alive` along with `X-Accel-Buffering: no` to prevent SSE proxy buffering.
+- **Razorpay Checkout Configuration Conflicts**: Resolved issues with the Razorpay modal failing to open due to contact validation ("9999999999") and redundant payload definitions (amount/currency sent alongside order_id).
+- **Unhandled Frontend Exceptions**: Added robust error handlers that populate the UI explicitly upon failures instead of silently logging to the console.
+- **Webhook Logging**: Implemented proper Python structured logging for webhook signature verification failures.
+- **Hidden trailing spaces in `.env`**: Cleaned up the `.env` variables causing 401 Unauthorized errors from Groq.
+- **Vercel Serverless Function Detection**: Implemented `api/index.py` wrapper to ensure Vercel detects the FastAPI app while preserving local `npm run dev:server` functionality.
+- **Vercel SPA Routing Conflicts**: Added `vercel.json` to properly map API calls and SPA fallback routes.
+
+This log is kept as evidence of our systematic approach to ensuring the platform runs reliably in a production environment.
