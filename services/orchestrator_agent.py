@@ -12,6 +12,7 @@ HARD RULES:
 
 import time
 from datetime import datetime
+from typing import AsyncGenerator
 from services.protocol_adapter import ProtocolAdapter, CanonicalIntentObject
 from services.catalog_engine import CatalogEngine
 from services.trust_gateway import TrustGateway
@@ -136,7 +137,7 @@ _ALLOWED_FUNCTIONS = {
 
 class OrchestratorAgent:
     @classmethod
-    async def process_transaction(cls, raw_buyer_request: dict) -> dict:
+    async def process_transaction(cls, raw_buyer_request: dict, force_llm_failure: bool = False) -> dict:
         start_time = time.time()
 
         try:
@@ -200,6 +201,7 @@ class OrchestratorAgent:
                     tools=_ORCHESTRATOR_TOOLS,
                     allowed_functions=_ALLOWED_FUNCTIONS,
                     audit_log_fn=_audit_log_llm_call,
+                    force_failure=force_llm_failure,
                 )
                 llm_routing_result = harness_result
 
@@ -276,4 +278,276 @@ class OrchestratorAgent:
                 "success":   False,
                 "error":     str(err),
                 "timestamp": datetime.utcnow().isoformat() + "Z",
+            }
+
+    @classmethod
+    async def stream_transaction(
+        cls,
+        raw_buyer_request: dict,
+        force_llm_failure: bool = False,
+    ) -> AsyncGenerator[dict, None]:
+        """
+        Async generator that yields per-layer SSE event dicts as each pipeline
+        layer completes. The caller (FastAPI StreamingResponse) serialises these
+        to SSE format.
+
+        Event shape:
+          { "layerId": int, "layerName": str, "status": str, "data": dict }
+
+        status values:
+          "started"   — layer is executing right now
+          "completed" — layer finished successfully
+          "blocked"   — Layer 3 blocked the transaction
+          "skipped"   — layer was skipped because a prior layer blocked
+        """
+        start_time = time.time()
+
+        try:
+            # ── LAYER 1: Protocol Translation ──
+            yield {
+                "layerId": 1, "layerName": "Protocol Translation",
+                "status": "started", "data": {}
+            }
+            canonical_intent: CanonicalIntentObject = ProtocolAdapter.normalize(raw_buyer_request)
+            yield {
+                "layerId": 1, "layerName": "Protocol Translation",
+                "status": "completed",
+                "data": {
+                    "protocol": canonical_intent.protocolOrigin,
+                    "intentId": canonical_intent.intentId,
+                    "buyerAgent": canonical_intent.buyerAgentName,
+                    "itemCount": len(canonical_intent.cartItems),
+                }
+            }
+
+            # ── LAYER 2: Catalog Validation ──
+            yield {
+                "layerId": 2, "layerName": "Catalog Agentification",
+                "status": "started", "data": {}
+            }
+            available_catalog = CatalogEngine.get_catalog()
+            validated_cart = []
+            catalog_hits = 0
+            for cart_item in canonical_intent.cartItems:
+                catalog_item = next(
+                    (c for c in available_catalog
+                     if c["id"] == cart_item.id or cart_item.name.lower() in c["name"].lower()),
+                    None,
+                )
+                if catalog_item:
+                    cart_item.price = catalog_item["price"]
+                    catalog_hits += 1
+                validated_cart.append(cart_item)
+            canonical_intent.cartItems = validated_cart
+            yield {
+                "layerId": 2, "layerName": "Catalog Agentification",
+                "status": "completed",
+                "data": {
+                    "itemsChecked": len(validated_cart),
+                    "catalogHits": catalog_hits,
+                    "totalAmount": canonical_intent.totalAmount,
+                }
+            }
+
+            # ── LAYER 3: Trust & Mandate Gateway ──
+            yield {
+                "layerId": 3, "layerName": "Trust & Mandate Gateway",
+                "status": "started", "data": {}
+            }
+            verification_result = TrustGateway.verify_intent(canonical_intent)
+            is_blocked = verification_result["decision"] != "APPROVED"
+            yield {
+                "layerId": 3, "layerName": "Trust & Mandate Gateway",
+                "status": "blocked" if is_blocked else "completed",
+                "data": {
+                    "decision": verification_result["decision"],
+                    "trustScore": verification_result["trustScore"],
+                    "riskScore": verification_result["riskScore"],
+                    "blockReasons": verification_result.get("blockReasons", []),
+                    "featureAttributions": verification_result.get("featureAttributions", []),
+                    "explanation": verification_result.get("explanation", ""),
+                }
+            }
+
+            execution_result   = None
+            fallback_triggered = False
+            fallback_link      = None
+            llm_routing_result = None
+
+            if is_blocked:
+                # Layers 4 and 5 are skipped — transaction was blocked
+                fallback_triggered = True
+                fallback_link = f"https://rzp.io/i/fallback_{canonical_intent.intentId[7:]}"
+
+                yield {
+                    "layerId": 4, "layerName": "Orchestrator Agent",
+                    "status": "skipped",
+                    "data": {"reason": "Skipped — transaction blocked by Layer 3"}
+                }
+                yield {
+                    "layerId": 5, "layerName": "Razorpay Execution",
+                    "status": "skipped",
+                    "data": {"reason": "Skipped — transaction blocked by Layer 3"}
+                }
+            else:
+                # ── LAYER 4: LLM-Harnessed Routing ──
+                yield {
+                    "layerId": 4, "layerName": "Orchestrator Agent",
+                    "status": "started", "data": {}
+                }
+
+                llm_context = (
+                    f"Incoming verified purchase intent (ID: {canonical_intent.intentId}) "
+                    f"from buyer agent '{canonical_intent.buyerAgentName}' "
+                    f"for merchant '{canonical_intent.merchantId}'. "
+                    f"Cart contains {len(canonical_intent.cartItems)} item(s). "
+                    f"Trust score: {verification_result['trustScore']}/100 (APPROVED). "
+                    f"Protocol: {canonical_intent.protocolOrigin}. "
+                    "Decide the routing action. Do NOT invent monetary values."
+                )
+                messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are AEGIS RAIL's orchestrator agent. "
+                            "Your sole job is to select the appropriate routing tool from the provided list. "
+                            "You may NOT pass monetary amounts, spend limits, or mandate values as tool arguments — "
+                            "those are handled by the system, not by you. "
+                            "You may NOT approve a previously blocked transaction. "
+                            "When in doubt, use fallback_to_payment_link."
+                        ),
+                    },
+                    {"role": "user", "content": llm_context},
+                ]
+
+                harness_result = run_harness(
+                    layer="Layer4_Orchestrator",
+                    messages=messages,
+                    tools=_ORCHESTRATOR_TOOLS,
+                    allowed_functions=_ALLOWED_FUNCTIONS,
+                    audit_log_fn=_audit_log_llm_call,
+                    force_failure=force_llm_failure,
+                )
+                llm_routing_result = harness_result
+
+                action = ""
+                if harness_result.success and isinstance(harness_result.validated_output, dict):
+                    action = harness_result.validated_output.get("action", "")
+                    fallback_triggered = action != "PROCEED_TO_EXECUTION"
+                else:
+                    fallback_triggered = True
+
+                yield {
+                    "layerId": 4, "layerName": "Orchestrator Agent",
+                    "status": "completed",
+                    "data": {
+                        "routingAction": action or "FALLBACK",
+                        "fallbackTriggered": fallback_triggered,
+                        "modelUsed": harness_result.model_used,
+                        "latencyMs": harness_result.latency_ms,
+                        "stageReached": harness_result.stage_reached,
+                        "harnessSuccess": harness_result.success,
+                        "failureReason": harness_result.failure_reason,
+                    }
+                }
+
+                # ── LAYER 5: Razorpay Execution ──
+                yield {
+                    "layerId": 5, "layerName": "Razorpay Execution",
+                    "status": "started", "data": {}
+                }
+
+                if not fallback_triggered and action == "PROCEED_TO_EXECUTION":
+                    try:
+                        execution_result = RazorpayExecution.execute_payment(
+                            canonical_intent, verification_result
+                        )
+                    except Exception as exec_err:
+                        fallback_triggered = True
+                        execution_result = RazorpayExecution.generate_fallback_execution(
+                            canonical_intent, f"Execution error: {exec_err}"
+                        )
+                        fallback_link = execution_result.get("paymentShortUrl")
+                else:
+                    reason = (
+                        harness_result.failure_reason or
+                        (harness_result.validated_output.get("reason", "LLM routed to fallback")
+                         if harness_result.success and isinstance(harness_result.validated_output, dict)
+                         else f"LLM harness fallback: {harness_result.failure_reason}")
+                    )
+                    execution_result = RazorpayExecution.generate_fallback_execution(
+                        canonical_intent, reason
+                    )
+                    fallback_link = execution_result.get("paymentShortUrl")
+
+                yield {
+                    "layerId": 5, "layerName": "Razorpay Execution",
+                    "status": "completed",
+                    "data": {
+                        "orderId": execution_result.get("orderId"),
+                        "paymentLinkId": execution_result.get("paymentLinkId"),
+                        "paymentShortUrl": execution_result.get("paymentShortUrl"),
+                        "executionType": execution_result.get("executionType"),
+                        "amount": execution_result.get("amount"),
+                    }
+                }
+
+            # ── LAYER 6: Audit Ledger ──
+            yield {
+                "layerId": 6, "layerName": "Audit & Explainability Ledger",
+                "status": "started", "data": {}
+            }
+            ledger_block = AuditLedger.append_entry(canonical_intent, verification_result, execution_result)
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            yield {
+                "layerId": 6, "layerName": "Audit & Explainability Ledger",
+                "status": "completed",
+                "data": {
+                    "index": ledger_block["index"],
+                    "hash": ledger_block["hash"],
+                    "previousHash": ledger_block["previousHash"],
+                    "entryId": ledger_block["entryId"],
+                }
+            }
+
+            # ── Final result event ──
+            final_result = {
+                "success": True,
+                "intentId":        canonical_intent.intentId,
+                "protocol":        canonical_intent.protocolOrigin,
+                "buyerAgent":      canonical_intent.buyerAgentName,
+                "merchantId":      canonical_intent.merchantId,
+                "canonicalIntent": canonical_intent.model_dump(),
+                "verification":    verification_result,
+                "execution":       execution_result,
+                "llmRouting": {
+                    "used":            llm_routing_result is not None,
+                    "success":         llm_routing_result.success if llm_routing_result else None,
+                    "stageReached":    llm_routing_result.stage_reached if llm_routing_result else None,
+                    "modelUsed":       llm_routing_result.model_used if llm_routing_result else None,
+                    "latencyMs":       llm_routing_result.latency_ms if llm_routing_result else None,
+                    "fallbackTriggered": llm_routing_result.fallback_triggered if llm_routing_result else None,
+                },
+                "fallback": {
+                    "triggered":          fallback_triggered,
+                    "fallbackPaymentLink": fallback_link,
+                    "message": "Graceful Fallback Active." if fallback_triggered else "Direct Agentic Execution Complete.",
+                },
+                "ledgerBlock": {
+                    "index":        ledger_block["index"],
+                    "hash":         ledger_block["hash"],
+                    "previousHash": ledger_block["previousHash"],
+                },
+                "processingTimeMs": processing_time_ms,
+            }
+            yield {"event": "done", "data": final_result}
+
+        except Exception as err:
+            yield {
+                "event": "error",
+                "data": {
+                    "success":   False,
+                    "error":     str(err),
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                }
             }

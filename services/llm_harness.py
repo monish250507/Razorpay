@@ -56,12 +56,21 @@ def _stage1_constrained_call(
     messages: list,
     response_schema: dict,
     tools: Optional[list] = None,
+    force_failure: bool = False,
 ) -> tuple:
     """
     Call Groq in structured-output / tool-calling mode.
     Returns (raw_response_str, model_used, error_message, raw_tool_call_str).
     Always tries GROQ_MODEL first, then GROQ_FALLBACK on any API-level failure.
+
+    If force_failure=True, immediately simulates a complete API outage (both
+    primary and fallback models fail) without making any network call. This is
+    used by the 'Simulate Groq Outage' demo preset to exercise the deterministic
+    fallback path in a fully controlled, repeatable way.
     """
+    if force_failure:
+        return None, None, "Both models failed: Forced LLM failure (X-Force-LLM-Failure header active — simulating Groq outage for demo)", None
+
     client = _get_client()
     for model in [GROQ_MODEL, GROQ_FALLBACK]:
         try:
@@ -194,16 +203,21 @@ def run_harness(
     tools: Optional[list] = None,
     allowed_functions: Optional[dict] = None,
     audit_log_fn: Any = None,
+    force_failure: bool = False,
 ) -> HarnessResult:
     """
     Runs all four harness stages. Any stage failure returns immediately with a failed
     HarnessResult. The audit_log_fn is called with the full result for Layer 6 logging.
+
+    force_failure=True immediately simulates a complete LLM API outage (both primary
+    and fallback models fail), exercising the deterministic fallback path for demo/test
+    purposes without any real network dependency.
     """
     start = time.time()
 
     # ── Stage 1: Constrained Call ──
     raw_content, model_used, call_error, tool_call_json = _stage1_constrained_call(
-        messages, response_schema or {}, tools
+        messages, response_schema or {}, tools, force_failure=force_failure
     )
     latency_ms = int((time.time() - start) * 1000)
 

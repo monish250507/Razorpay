@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ACP Checkout Session",
+  "type": "object",
+  "required": ["protocol", "agent_id", "merchant_id", "line_items", "authorization"],
+  "properties": {
+    "protocol": {
+      "type": "string",
+      "const": "ACP"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "merchant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "amount_total": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "line_items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["product_id", "name", "amount", "qty"],
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "qty": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "required": ["max_amount", "valid_until", "token"],
+      "properties": {
+        "max_amount": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 10
+        }
+      }
+    }
+  }
+}

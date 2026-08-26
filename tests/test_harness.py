@@ -6,6 +6,15 @@ Run with: python -m pytest tests/test_harness.py -v
 """
 import json
 import pytest
+import os
+
+# Set required env vars for tests so main.py doesn't crash on import
+os.environ["GROQ_API_KEY"] = "test_key"
+os.environ["RAZORPAY_KEY_ID"] = "test_key"
+os.environ["RAZORPAY_KEY_SECRET"] = "test_secret"
+os.environ["RAZORPAY_WEBHOOK_SECRET"] = "test_webhook_secret"
+os.environ["HASH_CHAIN_SECRET"] = "test_hash_secret"
+
 from unittest.mock import patch, MagicMock
 from services.llm_harness import (
     run_harness,
@@ -15,7 +24,96 @@ from services.llm_harness import (
 )
 from services.catalog_engine import CatalogEngine, LLMCatalogEntry, _manual_review_flags, _extraction_failure_counts
 from services.audit_ledger import AuditLedger
+from services.protocol_adapter import ProtocolAdapter
 from pydantic import BaseModel
+
+
+# ─────────────────────────────────────────────────────────
+# TEST SET A: Protocol Validation (Layer 1)
+# ─────────────────────────────────────────────────────────
+
+def test_ap2_validation():
+    # Valid AP2
+    valid_ap2 = {
+        "protocol": "AP2",
+        "buyer_agent_id": "test_agent",
+        "buyer_agent_name": "Test Agent",
+        "merchant_id": "test_merchant",
+        "items": [
+            {"id": "prod_1", "title": "Test Product", "price": 100, "quantity": 1}
+        ],
+        "mandate": {
+            "spend_limit": 150,
+            "expires_at": "2026-12-31T23:59:59Z",
+            "signature": "valid_signature_length",
+            "purpose": "Test purchase"
+        }
+    }
+    intent = ProtocolAdapter.normalize(valid_ap2)
+    assert intent.totalAmount == 100
+    assert intent.mandate.maxAmount == 150
+    
+    # Invalid AP2 (missing mandate purpose)
+    invalid_ap2 = valid_ap2.copy()
+    invalid_ap2["mandate"] = {
+        "spend_limit": 150,
+        "expires_at": "2026-12-31T23:59:59Z",
+        "signature": "valid_signature_length"
+        # purpose is missing
+    }
+    with pytest.raises(ValueError, match="Schema validation failed against official AP2 Spec"):
+        ProtocolAdapter.normalize(invalid_ap2)
+
+def test_acp_validation():
+    # Valid ACP
+    valid_acp = {
+        "protocol": "ACP",
+        "agent_id": "test_agent",
+        "merchant_id": "test_merchant",
+        "amount_total": 100,
+        "line_items": [
+            {"product_id": "prod_1", "name": "Test Product", "amount": 100, "qty": 1}
+        ],
+        "authorization": {
+            "max_amount": 150,
+            "valid_until": "2026-12-31T23:59:59Z",
+            "token": "valid_signature_length"
+        }
+    }
+    intent = ProtocolAdapter.normalize(valid_acp)
+    assert intent.totalAmount == 100
+    
+    # Invalid ACP (qty is string instead of integer)
+    invalid_acp = valid_acp.copy()
+    invalid_acp["line_items"] = [
+        {"product_id": "prod_1", "name": "Test Product", "amount": 100, "qty": "1"}
+    ]
+    with pytest.raises(ValueError, match="Schema validation failed against official ACP Spec"):
+        ProtocolAdapter.normalize(invalid_acp)
+
+def test_ucp_validation():
+    # Valid UCP
+    valid_ucp = {
+        "protocol": "UCP",
+        "agent": {"id": "test_agent", "name": "Test Agent"},
+        "merchant": {"id": "test_merchant"},
+        "cart": [
+            {"item_id": "prod_1", "item_name": "Test Product", "price": 100, "count": 1}
+        ],
+        "payment_auth": {
+            "limit": 150,
+            "expiry": "2026-12-31T23:59:59Z",
+            "signature": "valid_signature_length"
+        }
+    }
+    intent = ProtocolAdapter.normalize(valid_ucp)
+    assert intent.totalAmount == 100
+    
+    # Invalid UCP (missing agent name)
+    invalid_ucp = valid_ucp.copy()
+    invalid_ucp["agent"] = {"id": "test_agent"}
+    with pytest.raises(ValueError, match="Schema validation failed against official UCP Spec"):
+        ProtocolAdapter.normalize(invalid_ucp)
 
 
 # ─────────────────────────────────────────────────────────
@@ -271,3 +369,248 @@ def test_rejected_llm_call_written_to_audit_ledger():
     assert last_log["success"] == False
     assert last_log["final_action"] in ("REJECTED", "FALLBACK")
     print(f"✓ VERIFICATION: Rejected LLM call logged to Layer 6 ledger. Entry: {last_log['final_action']}")
+
+
+# ─────────────────────────────────────────────────────────
+# TEST 7: force_failure=True triggers immediate fallback (Groq Outage demo)
+# ─────────────────────────────────────────────────────────
+def test_forced_llm_failure_triggers_fallback_no_network():
+    """
+    New: When run_harness is called with force_failure=True, it must:
+      - Return fallback_triggered=True immediately (no real network call)
+      - Return success=False
+      - Complete in < 1 second (no timeout wait)
+      - Log the failure to the audit ledger via audit_log_fn
+    This is the 'Simulate Groq Outage' demo preset path.
+    """
+    import time
+
+    logged_calls = []
+    def mock_audit(*, layer, messages, result):
+        logged_calls.append(result)
+
+    start = time.time()
+    result = run_harness(
+        layer="Layer4_Orchestrator",
+        messages=[{"role": "user", "content": "test forced failure"}],
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "fallback_to_payment_link",
+                "parameters": {"type": "object", "properties": {}, "required": []}
+            }
+        }],
+        allowed_functions={"fallback_to_payment_link": lambda **kw: {"action": "FALLBACK"}},
+        audit_log_fn=mock_audit,
+        force_failure=True,
+    )
+    elapsed = time.time() - start
+
+    assert result.fallback_triggered, "force_failure=True must set fallback_triggered=True"
+    assert not result.success, "force_failure=True must return success=False"
+    assert elapsed < 1.0, f"force_failure should be instant, not wait for network (took {elapsed:.2f}s)"
+    assert len(logged_calls) == 1, "forced failure must be logged to audit ledger"
+    assert "Forced LLM failure" in (result.failure_reason or ""), \
+        f"failure_reason should mention forced failure, got: {result.failure_reason}"
+    print(f"✓ TEST 7 PASSED: force_failure=True returned immediately in {elapsed:.3f}s, fallback triggered, logged.")
+
+
+# ─────────────────────────────────────────────────────────
+# TEST 8: Groq outage preset exercises full fallback chain end-to-end
+# ─────────────────────────────────────────────────────────
+def test_groq_outage_exercises_full_deterministic_fallback():
+    """
+    New: End-to-end test of the Groq Outage scenario.
+    When the entire LLM call chain fails (simulated via force_failure in Stage 1),
+    the orchestrator must:
+      - NOT crash or hang
+      - Generate a valid SIMULATED_RAZORPAY_TEST_MODE execution result via fallback
+      - Return success=True at the pipeline level (graceful degradation, not failure)
+    """
+    import asyncio
+    from services.orchestrator_agent import OrchestratorAgent
+    from datetime import datetime, timedelta
+
+    valid_until = (datetime.utcnow() + timedelta(minutes=10)).isoformat() + "Z"
+    payload = {
+        "protocol": "AP2",
+        "buyer_agent_id": "test_outage_agent",
+        "buyer_agent_name": "Test Outage Agent",
+        "merchant_id": "merchant_meera_candles",
+        "items": [{"id": "prod_candle_01", "title": "Handmade Sandalwood Soy Candle", "price": 550, "quantity": 1}],
+        "mandate": {
+            "spend_limit": 600,
+            "signature": "ap2_ecdsa_valid_sig_outage_test",
+            "purpose": "Test Groq outage fallback",
+            "expires_at": valid_until,
+        }
+    }
+
+    result = asyncio.run(OrchestratorAgent.process_transaction(payload, force_llm_failure=True))
+
+    assert result.get("success") is True, \
+        f"Pipeline must succeed (graceful degradation), got: {result}"
+    assert result["fallback"]["triggered"] is True, \
+        "Fallback must be triggered when LLM fails"
+    assert result["execution"] is not None, \
+        "Execution result must still be generated (via fallback path)"
+    assert result["execution"].get("executionType") == "SIMULATED_RAZORPAY_TEST_MODE", \
+        f"Fallback must produce SIMULATED_RAZORPAY_TEST_MODE, got: {result['execution'].get('executionType')}"
+    assert result["llmRouting"]["fallbackTriggered"] is True, \
+        "LLM routing fallback flag must be True"
+    print(f"✓ TEST 8 PASSED: Groq outage → full graceful fallback. "
+          f"Order: {result['execution'].get('orderId')}, "
+          f"Type: {result['execution'].get('executionType')}")
+
+
+# ─────────────────────────────────────────────────────────
+# TEST 9: Valid Webhook Signature is Accepted
+# ─────────────────────────────────────────────────────────
+def test_valid_webhook_signature_accepted():
+    """Verify that a valid Razorpay webhook signature is accepted and logged."""
+    import os
+    import hmac
+    import hashlib
+    import json
+    from fastapi.testclient import TestClient
+    from main import app
+    from services.audit_ledger import AuditLedger
+
+    client = TestClient(app)
+    webhook_secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "test_webhook_secret_123")
+    
+    payload = {
+        "event": "payment.captured",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_test_123",
+                    "order_id": "order_test_456"
+                }
+            }
+        }
+    }
+    
+    raw_body = json.dumps(payload).encode('utf-8')
+    signature = hmac.new(
+        key=webhook_secret.encode('utf-8'),
+        msg=raw_body,
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    
+    initial_ledger_count = len(AuditLedger.get_ledger())
+    
+    response = client.post(
+        "/api/webhooks/razorpay",
+        content=raw_body,
+        headers={"x-razorpay-signature": signature}
+    )
+    
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert len(AuditLedger.get_ledger()) == initial_ledger_count + 1
+    last_entry = AuditLedger.get_ledger()[-1]
+    assert last_entry["type"] == "WEBHOOK_EVENT"
+    assert last_entry["signatureValid"] == True
+    print("✓ TEST 9 PASSED: Valid webhook signature accepted and logged.")
+
+
+# ─────────────────────────────────────────────────────────
+# TEST 10: Invalid Webhook Signature is Rejected
+# ─────────────────────────────────────────────────────────
+def test_invalid_webhook_signature_rejected():
+    """Verify that an invalid Razorpay webhook signature is rejected and logged as invalid."""
+    import json
+    from fastapi.testclient import TestClient
+    from main import app
+    from services.audit_ledger import AuditLedger
+
+    client = TestClient(app)
+    
+    payload = {
+        "event": "payment.captured",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_test_123_invalid",
+                    "order_id": "order_test_456_invalid"
+                }
+            }
+        }
+    }
+    
+    raw_body = json.dumps(payload).encode('utf-8')
+    signature = "invalid_signature_string"
+    
+    initial_ledger_count = len(AuditLedger.get_ledger())
+    
+    response = client.post(
+        "/api/webhooks/razorpay",
+        content=raw_body,
+        headers={"x-razorpay-signature": signature}
+    )
+    
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid signature"}
+    assert len(AuditLedger.get_ledger()) == initial_ledger_count + 1
+    last_entry = AuditLedger.get_ledger()[-1]
+    assert last_entry["type"] == "WEBHOOK_EVENT"
+    assert last_entry["signatureValid"] == False
+    print("✓ TEST 10 PASSED: Invalid webhook signature rejected with 400 and logged.")
+
+# ─────────────────────────────────────────────────────────
+# TEST 11: Duplicate Webhook is Idempotent
+# ─────────────────────────────────────────────────────────
+def test_duplicate_webhook_is_idempotent():
+    """Verify that a duplicate webhook delivery does not create a duplicate ledger entry."""
+    import os
+    import hmac
+    import hashlib
+    import json
+    from fastapi.testclient import TestClient
+    from main import app
+    from services.audit_ledger import AuditLedger
+
+    client = TestClient(app)
+    webhook_secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "test_webhook_secret_123")
+    
+    payload = {
+        "event": "payment.captured",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_test_duplicate_123",
+                    "order_id": "order_test_duplicate_456"
+                }
+            }
+        }
+    }
+    
+    raw_body = json.dumps(payload).encode('utf-8')
+    signature = hmac.new(
+        key=webhook_secret.encode('utf-8'),
+        msg=raw_body,
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    
+    # First delivery
+    response1 = client.post(
+        "/api/webhooks/razorpay",
+        content=raw_body,
+        headers={"x-razorpay-signature": signature}
+    )
+    assert response1.status_code == 200
+    ledger_count_after_first = len(AuditLedger.get_ledger())
+    
+    # Second delivery
+    response2 = client.post(
+        "/api/webhooks/razorpay",
+        content=raw_body,
+        headers={"x-razorpay-signature": signature}
+    )
+    assert response2.status_code == 200
+    ledger_count_after_second = len(AuditLedger.get_ledger())
+    
+    assert ledger_count_after_first == ledger_count_after_second
+    print("✓ TEST 11 PASSED: Duplicate webhook delivery is idempotent.")
+

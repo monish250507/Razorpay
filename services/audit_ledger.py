@@ -138,8 +138,75 @@ class AuditLedger:
         return sorted(combined, key=lambda x: x.get("timestamp", ""))
 
     @classmethod
+    def append_webhook_event(
+        cls,
+        event_type: str,
+        payload: dict,
+        signature_valid: bool,
+    ) -> dict:
+        entry_id      = f"block_{len(cls.ledger) + 1}"
+        previous_hash = cls.ledger[-1]["hash"] if cls.ledger else "0" * 64
+        timestamp     = datetime.utcnow().isoformat() + "Z"
+
+        payload_to_hash = json.dumps({
+            "entryId":      entry_id,
+            "previousHash": previous_hash,
+            "timestamp":    timestamp,
+            "type":         "WEBHOOK_EVENT",
+            "eventType":    event_type,
+            "signatureValid": signature_valid,
+            "orderId":      payload.get("payload", {}).get("payment", {}).get("entity", {}).get("order_id"),
+            "paymentId":    payload.get("payload", {}).get("payment", {}).get("entity", {}).get("id")
+        }, separators=(",", ":"))
+
+        block_hash = hmac.new(
+            _HMAC_SECRET,
+            payload_to_hash.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+        entry = {
+            "index":        len(cls.ledger) + 1,
+            "entryId":      entry_id,
+            "previousHash": previous_hash,
+            "hash":         block_hash,
+            "timestamp":    timestamp,
+            "type":         "WEBHOOK_EVENT",
+            "eventType":    event_type,
+            "signatureValid": signature_valid,
+            "orderId":      payload.get("payload", {}).get("payment", {}).get("entity", {}).get("order_id"),
+            "paymentId":    payload.get("payload", {}).get("payment", {}).get("entity", {}).get("id"),
+            "rawPayload":   payload,
+        }
+
+        cls.ledger.append(entry)
+        return entry
+
+    @classmethod
     def get_ledger_by_merchant(cls, merchant_id: str) -> list:
         return [e for e in cls.ledger if e.get("merchantId") == merchant_id]
+
+    @classmethod
+    def get_transaction_details(cls, order_id: str) -> dict:
+        """Finds trust score, buyer info, and amount for an order from previous blocks."""
+        details = {"buyerAgent": "Unknown", "trustScore": 0, "amount": 0}
+        
+        # Traverse backward to find the TRANSACTION_APPROVED block that matches the intent
+        intent_id = None
+        for e in reversed(cls.ledger):
+            if e.get("type") == "TRANSACTION_APPROVED" and e.get("execution", {}).get("orderId") == order_id:
+                intent_id = e.get("intentId")
+                details["amount"] = e.get("execution", {}).get("amount", 0)
+                details["trustScore"] = e.get("trustScore", 0)
+                break
+                
+        if intent_id:
+            for e in reversed(cls.ledger):
+                if e.get("type") == "TRANSACTION_INITIATED" and e.get("intentId") == intent_id:
+                    details["buyerAgent"] = e.get("intentData", {}).get("buyerAgentName", "Unknown")
+                    break
+                    
+        return details
 
     @classmethod
     def verify_integrity(cls) -> dict:

@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
-import { X, CheckCircle, ExternalLink, ShieldCheck, Zap, Copy, CreditCard } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, CheckCircle, ExternalLink, ShieldCheck, Zap, Copy, CreditCard, Loader2 } from 'lucide-react';
 
-export default function RazorpayModal({ execution, onClose }) {
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
+export default function RazorpayModal({ execution, onClose, onFallback }) {
   const [isCopied, setIsCopied] = useState(false);
-  const [paymentDone, setPaymentDone] = useState(false);
+  const [paymentState, setPaymentState] = useState('initial'); // 'initial' | 'checkout_open' | 'confirming_webhook' | 'confirmed' | 'failed'
+  const [webhookError, setWebhookError] = useState(null);
 
   if (!execution) return null;
 
@@ -11,6 +14,99 @@ export default function RazorpayModal({ execution, onClose }) {
     navigator.clipboard.writeText(execution.paymentShortUrl);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  // Dynamically load Razorpay Checkout script
+  useEffect(() => {
+    if (!document.getElementById('razorpay-checkout-js')) {
+      const script = document.createElement('script');
+      script.id = 'razorpay-checkout-js';
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const openRazorpayCheckout = () => {
+    if (!window.Razorpay) {
+      alert("Razorpay SDK not loaded yet.");
+      return;
+    }
+
+    setPaymentState('checkout_open');
+
+    const options = {
+      key: execution.keyId || "rzp_test_simulated_key", // Use real key if provided, else fallback string
+      name: "AEGIS RAIL Gateway",
+      description: "Secure Agentic Checkout",
+      order_id: execution.orderId,
+      handler: function (response) {
+        // Payment authorized by client. Now we wait for the webhook to confirm.
+        setPaymentState('confirming_webhook');
+        pollWebhookStatus(execution.orderId);
+      },
+      prefill: {
+        name: "Test User",
+        email: "test@example.com",
+        contact: "9876543210"
+      },
+      theme: {
+        color: "#2563EB" // blue-600
+      },
+      modal: {
+        ondismiss: function() {
+          setPaymentState('initial');
+          if (onFallback) {
+             onFallback("User dismissed the Razorpay Checkout widget. Triggering graceful fallback.");
+          }
+        }
+      }
+    };
+
+    const rzp1 = new window.Razorpay(options);
+    
+    rzp1.on('payment.failed', function (response) {
+      setPaymentState('failed');
+      setWebhookError(response.error.description || "Payment failed");
+      if (onFallback) {
+          onFallback(`Razorpay Checkout failed: ${response.error.description}`);
+      }
+    });
+
+    rzp1.open();
+  };
+
+  // Poll the backend until status is "confirmed" or "failed"
+  const pollWebhookStatus = async (orderId) => {
+    const maxAttempts = 30; // 30 seconds
+    let attempts = 0;
+
+    const intervalId = setInterval(async () => {
+      attempts++;
+      if (attempts >= maxAttempts) {
+        clearInterval(intervalId);
+        setPaymentState('failed');
+        setWebhookError("Timed out waiting for webhook confirmation. Check network/ngrok.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/transactions/${orderId}/status`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'confirmed') {
+            clearInterval(intervalId);
+            setPaymentState('confirmed');
+          } else if (data.status === 'failed') {
+            clearInterval(intervalId);
+            setPaymentState('failed');
+            setWebhookError("Webhook reported payment failure.");
+          }
+        }
+      } catch (err) {
+        console.error("Polling error", err);
+      }
+    }, 1500); // Check every 1.5s
   };
 
   return (
@@ -42,18 +138,37 @@ export default function RazorpayModal({ execution, onClose }) {
         {/* Body Content */}
         <div className="p-6 space-y-5">
           
-          {paymentDone ? (
+          {paymentState === 'confirmed' ? (
             <div className="text-center py-6 space-y-3">
               <div className="w-14 h-14 bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center justify-center text-emerald-400 mx-auto animate-bounce">
                 <CheckCircle className="w-8 h-8" />
               </div>
-              <h4 className="text-lg font-bold text-white">Payment Authorized & Captured!</h4>
+              <h4 className="text-lg font-bold text-white">Payment Authorized & Webhook Confirmed!</h4>
               <p className="text-xs text-slate-400">
                 Razorpay Test-Mode settlement completed for Order <span className="font-mono text-blue-400">{execution.orderId}</span>
               </p>
               <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-300 font-mono">
-                SMS sent to Meera: "Sale completed via AI buyer agent. Trust score verified."
+                SMS sent to Merchant: "Sale completed via AI buyer agent. Webhook verified."
               </div>
+            </div>
+          ) : paymentState === 'confirming_webhook' ? (
+            <div className="text-center py-8 space-y-4">
+               <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto" />
+               <h4 className="text-lg font-bold text-white">Confirming with Razorpay...</h4>
+               <p className="text-xs text-slate-400">
+                 Client success received. Waiting for secure server-to-server webhook confirmation from Razorpay before completing order.
+               </p>
+            </div>
+          ) : paymentState === 'failed' ? (
+             <div className="text-center py-6 space-y-3">
+              <div className="w-14 h-14 bg-rose-500/20 border border-rose-500/30 rounded-full flex items-center justify-center text-rose-400 mx-auto">
+                <X className="w-8 h-8" />
+              </div>
+              <h4 className="text-lg font-bold text-white">Payment Failed</h4>
+              <p className="text-xs text-rose-400">
+                {webhookError}
+              </p>
+              <button onClick={() => setPaymentState('initial')} className="mt-4 px-4 py-2 bg-slate-800 text-white rounded">Retry</button>
             </div>
           ) : (
             <>
@@ -111,15 +226,19 @@ export default function RazorpayModal({ execution, onClose }) {
                 </div>
               </div>
 
-              {/* Simulate Action Buttons */}
-              <div className="pt-2 flex gap-3">
+              {/* Real Checkout Button */}
+              <div className="pt-2 flex flex-col gap-2">
                 <button
-                  onClick={() => setPaymentDone(true)}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  onClick={openRazorpayCheckout}
+                  disabled={paymentState === 'checkout_open'}
+                  className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <Zap className="w-4 h-4" />
-                  <span>Simulate Test Payment Authorization</span>
+                  <CreditCard className="w-4 h-4" />
+                  <span>Open Real Razorpay Checkout Widget</span>
                 </button>
+                <p className="text-[10px] text-slate-400 text-center">
+                  <strong>Demo Info:</strong> Use UPI ID <code className="text-emerald-400 bg-emerald-400/10 px-1 rounded">success@razorpay</code> for instant success.
+                </p>
               </div>
             </>
           )}

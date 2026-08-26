@@ -1,9 +1,12 @@
 import os
 import random
 import string
+import logging
 from datetime import datetime
 import razorpay
 from services.protocol_adapter import CanonicalIntentObject
+
+logger = logging.getLogger(__name__)
 
 class RazorpayExecution:
     @classmethod
@@ -33,39 +36,20 @@ class RazorpayExecution:
                 }
                 order = client.order.create(data=order_data)
 
-                # Create Razorpay Payment Link
-                plink_data = {
-                    "amount": amount_in_paise,
-                    "currency": canonical_intent.currency or "INR",
-                    "accept_partial": False,
-                    "description": f"Order {order.get('id')} via AEGIS RAIL Agentic Checkout",
-                    "customer": {
-                        "name": f"{canonical_intent.buyerAgentName} (for User)",
-                        "email": "nova.agent@aegisrail.io",
-                        "contact": "+919999999999"
-                    },
-                    "notify": {"sms": False, "email": False},
-                    "reminder_enable": False,
-                    "notes": {
-                        "order_id": order.get('id'),
-                        "intent_id": canonical_intent.intentId
-                    }
-                }
-                payment_link = client.payment_link.create(data=plink_data)
-
                 return {
                     "status": "SUCCESS",
                     "executionType": "LIVE_RAZORPAY_API",
                     "orderId": order.get("id"),
-                    "paymentLinkId": payment_link.get("id"),
-                    "paymentShortUrl": payment_link.get("short_url"),
+                    "paymentLinkId": None,
+                    "paymentShortUrl": None,
                     "amount": canonical_intent.totalAmount,
                     "currency": canonical_intent.currency,
                     "receipt": receipt,
+                    "keyId": key_id,
                     "createdAt": datetime.utcnow().isoformat() + "Z"
                 }
             except Exception as e:
-                print(f"Razorpay Live Test API call failed, triggering Graceful Fallback Mode: {e}")
+                logger.error(f"Razorpay Live Test API call failed, triggering Graceful Fallback Mode: {e}")
                 return cls.generate_fallback_execution(canonical_intent, str(e))
         else:
             return cls.generate_fallback_execution(canonical_intent, "Simulated Razorpay Test-Mode Connection")
@@ -106,5 +90,6 @@ class RazorpayExecution:
                 },
                 "created_at": int(datetime.utcnow().timestamp())
             },
+            "keyId": "rzp_test_simulated_key",
             "createdAt": datetime.utcnow().isoformat() + "Z"
         }
