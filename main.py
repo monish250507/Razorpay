@@ -61,7 +61,7 @@ def health_check():
             "Layer 1: Protocol Translation Gateway (AP2, ACP, UCP, NPCI UAP)",
             "Layer 2: Catalog Agentification Engine",
             "Layer 3: Trust & Mandate Verification Gateway (Centerpiece)",
-            "Layer 4: Orchestrator Agent (Claude Agent SDK pattern)",
+            "Layer 4: Orchestrator Agent (Groq Llama-3 SDK pattern)",
             "Layer 5: Razorpay Execution Layer",
             "Layer 6: Audit & Tamper-Evident Ledger"
         ],

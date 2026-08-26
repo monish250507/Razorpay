@@ -58,7 +58,7 @@ export default function LayerArchitectureDiagram({ layerStatuses = {}, activeRes
     {
       id: 4,
       name: "Layer 4: Orchestrator Agent",
-      subtitle: "Claude Agent SDK routing & Graceful Fallback",
+      subtitle: "Groq Llama-3 SDK routing & Graceful Fallback",
       icon: Cpu,
       color: "from-cyan-600 to-blue-600",
       glowColor: "shadow-cyan-500/40",

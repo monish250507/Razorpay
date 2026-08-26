@@ -108,6 +108,17 @@ export default function NovaSimulator({ onRunSimulation, presets, isProcessing, 
       });
       const data = await res.json();
       setNlResult(data);
+      
+      if (data.success && data.payload) {
+        const p = data.payload;
+        const newCap = p.mandate?.spend_limit || p.authorization?.max_amount || p.user_mandate?.cap || p.upi_mandate_limit;
+        if (newCap) setSpendLimit(Number(newCap));
+        if (data.matched_product) {
+          setProductTitle(data.matched_product.name);
+          setProductPrice(Number(data.matched_product.price));
+        }
+        if (p.protocol) setProtocol(p.protocol);
+      }
     } catch (err) {
       setNlResult({ success: false, failure_reason: err.message });
     } finally {

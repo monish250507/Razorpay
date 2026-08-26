@@ -21,14 +21,16 @@ export default function MerchantView({ catalogData, onCatalogUpdate }) {
       const res = await fetch(`${API_BASE}/api/ledger`);
       if (res.ok) {
         const data = await res.json();
+        const ledgerData = Array.isArray(data) ? data : data.ledger;
+        
         // Parse ledger to find webhook events and reconstruct activity feed
-        const webhookEvents = data.filter(e => e.type === "WEBHOOK_EVENT" && e.eventType === "payment.captured");
+        const webhookEvents = ledgerData.filter(e => e.type === "WEBHOOK_EVENT" && e.eventType === "payment.captured");
         
         const feed = webhookEvents.map(e => {
           // Find matching approval for details
           const orderId = e.orderId;
-          const approvedEvent = [...data].reverse().find(x => x.type === "TRANSACTION_APPROVED" && x.execution?.orderId === orderId);
-          const initiatedEvent = approvedEvent ? [...data].reverse().find(x => x.type === "TRANSACTION_INITIATED" && x.intentId === approvedEvent.intentId) : null;
+          const approvedEvent = [...ledgerData].reverse().find(x => x.decision === "APPROVED" && x.execution?.orderId === orderId);
+          const initiatedEvent = approvedEvent ? [...ledgerData].reverse().find(x => x.type === "TRANSACTION_INITIATED" && x.intentId === approvedEvent.intentId) : null;
           
           return {
             id: e.entryId,
@@ -46,7 +48,7 @@ export default function MerchantView({ catalogData, onCatalogUpdate }) {
         // Calculate stats
         const todayStr = new Date().toISOString().split('T')[0];
         
-        const allDecisionTx = data.filter(e => e.decision);
+        const allDecisionTx = ledgerData.filter(e => e.decision);
         const approvedTx = allDecisionTx.filter(e => e.decision === "APPROVED");
         const rejectedTx = allDecisionTx.filter(e => e.decision === "REJECTED");
         
