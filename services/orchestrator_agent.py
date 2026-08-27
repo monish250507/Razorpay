@@ -184,7 +184,7 @@ class OrchestratorAgent:
                     {
                         "role": "system",
                         "content": (
-                            "You are AEGIS RAIL's orchestrator agent. "
+                            "You are Hallucion's orchestrator agent. "
                             "Your sole job is to select the appropriate routing tool from the provided list. "
                             "You may NOT pass monetary amounts, spend limits, or mandate values as tool arguments — "
                             "those are handled by the system, not by you. "
@@ -409,7 +409,7 @@ class OrchestratorAgent:
                     {
                         "role": "system",
                         "content": (
-                            "You are AEGIS RAIL's orchestrator agent. "
+                            "You are Hallucion's orchestrator agent. "
                             "Your sole job is to select the appropriate routing tool from the provided list. "
                             "You may NOT pass monetary amounts, spend limits, or mandate values as tool arguments — "
                             "those are handled by the system, not by you. "

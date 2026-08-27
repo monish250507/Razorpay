@@ -37,7 +37,7 @@ export default function RazorpayModal({ execution, onClose, onFallback }) {
 
     const options = {
       key: execution.keyId || "rzp_test_simulated_key", // Use real key if provided, else fallback string
-      name: "AEGIS RAIL Gateway",
+      name: "Hallucion Gateway",
       description: "Secure Agentic Checkout",
       order_id: execution.orderId,
       handler: function (response) {

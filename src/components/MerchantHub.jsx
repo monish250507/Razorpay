@@ -149,7 +149,7 @@ export default function MerchantHub({ catalogData, onCatalogUpdate }) {
         </div>
         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-semibold text-emerald-400">
           <ShieldCheck className="w-3.5 h-3.5" />
-          <span>AEGIS Agent-Ready</span>
+          <span>Hallucion Agent-Ready</span>
         </div>
       </div>
 

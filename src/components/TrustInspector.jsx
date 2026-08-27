@@ -306,7 +306,7 @@ export default function TrustInspector({ result, isProcessing, onOpenRazorpayMod
           <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
             <span className="font-semibold block mb-1">🛡️ Graceful Failure Fallback Active</span>
             <p className="text-[11px] text-slate-300 mb-2">
-              Agent direct execution was blocked. AEGIS RAIL generated a standard payment link:
+              Agent direct execution was blocked. Hallucion generated a standard payment link:
             </p>
             <a href={fallback.fallbackPaymentLink} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-1 text-blue-400 underline font-mono text-[11px]">

@@ -108,7 +108,7 @@ export default function LayerArchitectureDiagram({ layerStatuses = {}, activeRes
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <span className={`w-2.5 h-2.5 rounded-full ${isProcessing ? 'bg-blue-400 animate-ping' : 'bg-blue-500 animate-pulse'}`}></span>
-            AEGIS RAIL 6-Layer Architecture Pipeline
+            Hallucion 6-Layer Architecture Pipeline
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             End-to-End request translation, zero-trust gating, and execution flow

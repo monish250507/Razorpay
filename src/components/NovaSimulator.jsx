@@ -289,7 +289,7 @@ export default function NovaSimulator({ onRunSimulation, presets, isProcessing, 
                   {nlConfirmed || isProcessing ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /><span>Running Pipeline…</span></>
                   ) : (
-                    <><ArrowRight className="w-4 h-4" /><span>Send Through AEGIS RAIL Pipeline</span></>
+                    <><ArrowRight className="w-4 h-4" /><span>Send Through Hallucion Pipeline</span></>
                   )}
                 </button>
               )}
@@ -408,7 +408,7 @@ export default function NovaSimulator({ onRunSimulation, presets, isProcessing, 
             className="w-full mt-2 py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
           >
             <Play className="w-4 h-4 fill-white" />
-            <span>{isProcessing ? 'Processing Intent...' : 'Transmit Intent to AEGIS RAIL Gateway'}</span>
+            <span>{isProcessing ? 'Processing Intent...' : 'Transmit Intent to Hallucion Gateway'}</span>
           </button>
         </div>
       )}

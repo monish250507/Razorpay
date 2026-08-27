@@ -1,4 +1,4 @@
-# AEGIS RAIL: Deployment Problems Log
+# Hallucion: Deployment Problems Log
 
 This is a running log of every real issue found while making the codebase deploy-ready for Render (Backend) and Vercel (Frontend). Each issue is documented here *before* a fix is applied.
 

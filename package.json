@@ -1,5 +1,5 @@
 {
-  "name": "aegis-rail",
+  "name": "hallucion",
   "version": "1.0.0",
   "description": "Universal Trust & Translation Gateway for Razorpay Agentic Commerce",
   "main": "server/index.js",

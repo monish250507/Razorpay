@@ -147,7 +147,7 @@ export default function AttackResultPanel({ result, onClose }) {
         <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-950/20 border border-blue-500/15">
           <ShieldAlert className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
           <p className="text-[11px] text-blue-300/80 leading-relaxed">
-            <span className="font-semibold text-blue-300">Why this is safe:</span> The AEGIS RAIL Layer 2 harness runs a grounding check on every LLM-extracted field. Any value not traceable to the original source document is hard-rejected — meaning an attacker cannot force arbitrary prices or fields through the catalog pipeline, even if the LLM was tricked.
+            <span className="font-semibold text-blue-300">Why this is safe:</span> The Hallucion Layer 2 harness runs a grounding check on every LLM-extracted field. Any value not traceable to the original source document is hard-rejected — meaning an attacker cannot force arbitrary prices or fields through the catalog pipeline, even if the LLM was tricked.
           </p>
         </div>
       </div>

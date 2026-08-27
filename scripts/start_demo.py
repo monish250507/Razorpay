@@ -19,7 +19,7 @@ def check_ngrok():
 
 def main():
     print("==================================================")
-    print("🚀 STARTING AEGIS RAIL DEMO ENVIRONMENT")
+    print("🚀 STARTING Hallucion DEMO ENVIRONMENT")
     print("==================================================")
 
     check_ngrok()

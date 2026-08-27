@@ -31,7 +31,7 @@ class RazorpayExecution:
                         "buyer_agent": canonical_intent.buyerAgentName,
                         "protocol": canonical_intent.protocolOrigin,
                         "trust_score": str(verification_result.get("trustScore", "")),
-                        "aegis_intent_id": canonical_intent.intentId
+                        "hallucion_intent_id": canonical_intent.intentId
                     }
                 }
                 order = client.order.create(data=order_data)
@@ -84,7 +84,7 @@ class RazorpayExecution:
                 "status": "created",
                 "attempts": 0,
                 "notes": {
-                    "aegis_rail_gateway": "active",
+                    "hallucion_gateway": "active",
                     "protocol": canonical_intent.protocolOrigin,
                     "buyer_agent": canonical_intent.buyerAgentName
                 },

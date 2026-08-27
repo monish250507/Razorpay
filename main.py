@@ -58,7 +58,7 @@ app.add_middleware(
 def health_check():
     return {
         "status": "online",
-        "system": "AEGIS RAIL — Universal Trust & Translation Gateway (Python/FastAPI)",
+        "system": "Hallucion — Universal Trust & Translation Gateway (Python/FastAPI)",
         "version": "1.0.0",
         "layers": [
             "Layer 1: Protocol Translation Gateway (AP2, ACP, UCP, NPCI UAP)",

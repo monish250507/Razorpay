@@ -1,8 +1,8 @@
-# AEGIS RAIL: Universal Trust & Translation Gateway for Agentic Commerce
+# Hallucion: Universal Trust & Translation Gateway for Agentic Commerce
 
-AEGIS RAIL (Razorpay Agentic Intent Layer) is a secure, deterministically bound gateway designed to bridge the gap between autonomous AI agents (like Groq/Claude/OpenAI-powered shopping assistants) and the Razorpay financial execution layer. 
+Hallucion (Razorpay Agentic Intent Layer) is a secure, deterministically bound gateway designed to bridge the gap between autonomous AI agents (like Groq/Claude/OpenAI-powered shopping assistants) and the Razorpay financial execution layer. 
 
-By enforcing strict trust verification, cryptographically signed audit logs, and hardware-level isolation between "thinking" layers and "execution" layers, AEGIS RAIL ensures that **AI agents can propose transactions, but can never independently authorize the movement of funds.**
+By enforcing strict trust verification, cryptographically signed audit logs, and hardware-level isolation between "thinking" layers and "execution" layers, Hallucion ensures that **AI agents can propose transactions, but can never independently authorize the movement of funds.**
 
 ## 🌊 Pipeline Architecture
 
@@ -17,7 +17,7 @@ The pipeline processes transactions through 6 immutable layers. **No layer is al
 
 ## 🧠 Agentic Architecture & The 4-Stage LLM Harness
 
-AEGIS RAIL operates on a foundational security principle: **"The LLM proposes. It may never dispose."**
+Hallucion operates on a foundational security principle: **"The LLM proposes. It may never dispose."**
 
 To enforce this, all LLM API calls in Layer 2 and Layer 4 are wrapped in a proprietary **4-Stage LLM Harness**. The LLM cannot execute code or return data directly; it must survive the harness:
 
@@ -49,7 +49,7 @@ For demonstration purposes, the system includes a React/Vite frontend (`npm run 
 
 ## 🎬 Interactive Demo & Walkthrough
 
-AEGIS RAIL includes an interactive React/Vite visualizer paired with the FastAPI backend that provides real-time visibility into how transactions flow through the 6 security layers and how the 4-Stage LLM Harness protects against adversarial attacks.
+Hallucion includes an interactive React/Vite visualizer paired with the FastAPI backend that provides real-time visibility into how transactions flow through the 6 security layers and how the 4-Stage LLM Harness protects against adversarial attacks.
 
 ### 🧑‍💻 Live Demo & Ngrok Setup (Important!)
 
@@ -179,7 +179,7 @@ To deploy:
 
 ## 📜 Deployment & Troubleshooting History
 
-The following challenges were encountered and resolved during the deployment of AEGIS RAIL to production environments:
+The following challenges were encountered and resolved during the deployment of Hallucion to production environments:
 
 - **Missing `render.yaml` / Missing env checks**: Fixed by creating a declarative Render deployment configuration and adding startup validations for required secrets (`GROQ_API_KEY`, `RAZORPAY_KEY_ID`, etc.).
 - **Insecure CORS / Proxy Buffering**: Fixed wildcard CORS issues and added `Connection: keep-alive` along with `X-Accel-Buffering: no` to prevent SSE proxy buffering.

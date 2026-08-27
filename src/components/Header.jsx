@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ShieldCheck, Zap, ShieldAlert, AlertTriangle, Wifi, ChevronDown, Skull } from 'lucide-react';
 
 /**
- * Header — AEGIS RAIL top navigation bar.
+ * Header — Hallucion top navigation bar.
  *
  * Props:
  *   presets         — array of simulation presets from /api/simulations
@@ -118,7 +118,7 @@ export default function Header({ onSelectPreset, presets, onAttackPreset, curren
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-xl tracking-tight text-white flex items-center gap-1.5">
-                RAZORPAY <span className="text-blue-500 font-extrabold">AEGIS RAIL</span>
+                RAZORPAY <span className="text-blue-500 font-extrabold">Hallucion</span>
               </span>
               <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wide bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full uppercase">
                 Track 01

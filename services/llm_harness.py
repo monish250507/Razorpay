@@ -1,5 +1,5 @@
 """
-AEGIS RAIL — LLM Harness Module
+Hallucion — LLM Harness Module
 "LLM proposes, code disposes."
 
 This module implements the 4-stage harness through which ALL Groq calls must pass:

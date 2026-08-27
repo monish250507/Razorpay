@@ -1,5 +1,5 @@
 """
-AEGIS RAIL — Full Adversarial Test Suite
+Hallucion — Full Adversarial Test Suite
 Section 7 of the LLM Harness Plan — ALL 6 tests must pass before any live demo.
 
 Run with: python -m pytest tests/test_harness.py -v
