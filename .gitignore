@@ -25,3 +25,9 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Demo / Documents
+*.md
+!README.md
+!readme.md
+*.pdf
