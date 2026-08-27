@@ -309,33 +309,6 @@ export default function NovaSimulator({ onRunSimulation, presets, isProcessing, 
       {/* ─── MANUAL TAB ─── */}
       {activeTab === 'manual' && (
         <div className="flex flex-col gap-3 flex-1">
-          {/* Quick presets */}
-          <div>
-            <label className="text-[11px] font-semibold text-slate-400 block mb-2">⚡ Quick Vectors:</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => loadPreset('valid_ap2_purchase')}
-                className="flex items-center gap-1.5 px-2.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 font-medium transition-all text-left">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="truncate">Valid AP2 (₹550)</span>
-              </button>
-              <button onClick={() => loadPreset('over_budget_blocked')}
-                className="flex items-center gap-1.5 px-2.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-lg text-xs text-rose-300 font-medium transition-all text-left">
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                <span className="truncate">Over-Budget Block</span>
-              </button>
-              <button onClick={() => loadPreset('forged_signature_blocked')}
-                className="flex items-center gap-1.5 px-2.5 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-lg text-xs text-purple-300 font-medium transition-all text-left">
-                <AlertTriangle className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                <span className="truncate">Forged Signature</span>
-              </button>
-              <button onClick={() => loadPreset('npci_uap_simulated')}
-                className="flex items-center gap-1.5 px-2.5 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-xs text-cyan-300 font-medium transition-all text-left">
-                <Zap className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span className="truncate">NPCI UAP</span>
-              </button>
-            </div>
-          </div>
-
           {/* Form */}
           <div className="space-y-3 text-xs flex-1">
             <div>

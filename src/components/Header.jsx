@@ -176,56 +176,6 @@ export default function Header({ onSelectPreset, presets, onAttackPreset, curren
             </select>
           </div>
 
-          {/* Attack Scenarios Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowAttackMenu(!showAttackMenu)}
-              className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer shadow-sm ${
-                showAttackMenu
-                  ? 'bg-rose-500/20 border-rose-500/50 text-rose-300'
-                  : 'bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/20 text-rose-400'
-              }`}
-            >
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>⚠️ Attack Scenarios</span>
-              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAttackMenu ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showAttackMenu && (
-              <>
-                {/* Backdrop */}
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowAttackMenu(false)}
-                />
-                {/* Dropdown menu */}
-                <div className="absolute right-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-slate-700/80 bg-[#0d1525]/95 backdrop-blur-md shadow-2xl shadow-black/50 overflow-hidden">
-                  <div className="px-3 py-2 border-b border-slate-700/60">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Break It — Real Backend Paths</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Each runs through the actual pipeline, not mocks</p>
-                  </div>
-                  {getAttackPresets().map((preset) => {
-                    const Icon = preset.icon;
-                    return (
-                      <button
-                        key={preset.id}
-                        onClick={() => handleAttackPreset(preset)}
-                        className={`w-full text-left flex items-start gap-3 px-4 py-3 border-b border-slate-800/60 last:border-b-0 transition-colors hover:bg-slate-800/40 group`}
-                      >
-                        <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 ${preset.bgColor}`}>
-                          <Icon className={`w-4 h-4 ${preset.color}`} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className={`text-xs font-bold ${preset.color}`}>{preset.label}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{preset.description}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
 
           {/* Test Mode Badge */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-xs font-medium text-indigo-300">
